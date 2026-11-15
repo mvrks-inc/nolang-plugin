@@ -1,0 +1,14 @@
+{
+  "name": "nolang-cli-bootstrap",
+  "private": true,
+  "version": "0.0.1",
+  "description": "The bootstrap of the nolang command inside the plugin: fetches the program body from the NoLang server, verifies its signature and runs it",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "Apache-2.0"
+}

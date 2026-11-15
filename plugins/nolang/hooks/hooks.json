@@ -1,0 +1,26 @@
+{
+  "description": "Shows tell_user from nolang output (the video or sign-in URL) on screen as a notification, wakes Claude when a video it started has finished generating so that it can tell the user, and approves the plumbing of nolang make (taking a job, writing a part file) without a permission prompt",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Read",
+        "hooks": [{ "type": "command", "command": "command -v node >/dev/null 2>&1 || exit 0; node \"${CLAUDE_PLUGIN_ROOT}/hooks/allow-nolang.mjs\"", "timeout": 10 }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "command -v node >/dev/null 2>&1 || exit 0; node \"${CLAUDE_PLUGIN_ROOT}/hooks/tell-user.mjs\"", "timeout": 10 },
+          { "type": "command", "command": "command -v node >/dev/null 2>&1 || exit 0; node \"${CLAUDE_PLUGIN_ROOT}/hooks/video-done.mjs\"", "asyncRewake": true, "timeout": 3600 }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "command -v node >/dev/null 2>&1 || exit 0; node \"${CLAUDE_PLUGIN_ROOT}/hooks/tell-user.mjs\"", "timeout": 10 }]
+      }
+    ]
+  }
+}

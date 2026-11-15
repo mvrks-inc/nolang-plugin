@@ -1,0 +1,8 @@
+{
+  "name": "nolang",
+  "description": "NoLang Skill: make videos from Claude Code. Your agent writes the script and the screens; NoLang adds the voice, pictures and BGM and renders the video.",
+  "author": {
+    "name": "mvrx"
+  },
+  "license": "Apache-2.0"
+}

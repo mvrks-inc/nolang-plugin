@@ -1,0 +1,12 @@
+{
+  "name": "nolang",
+  "description": "NoLang Skill: make videos from Codex. Your agent writes the script and the screens; NoLang adds the voice, pictures and BGM and renders the video.",
+  "author": {
+    "name": "mvrx"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "NoLang",
+    "shortDescription": "Make videos from a text request"
+  }
+}

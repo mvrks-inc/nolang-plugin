@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+# 読むだけ (repo の既定の権限が変わっても広がらない)
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      # tag は付け替えられるので commit で固定する
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      # プラグインの中身が正本 (packages/cli・skills・hooks) どおりか + hook の単体テスト (CLI 本体のテストは nolang-backend の CI)
+      - run: npm run check
+      # `claude plugin validate` は Claude Code が要るので手元で (`npm run validate`)

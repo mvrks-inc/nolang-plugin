@@ -1,0 +1,14 @@
+{
+  "name": "nolang",
+  "owner": {
+    "name": "mvrx"
+  },
+  "description": "NoLang Skill for Claude Code. Make videos from a text request.",
+  "plugins": [
+    {
+      "name": "nolang",
+      "source": "./plugins/nolang",
+      "description": "NoLang Skill: make videos from Claude Code."
+    }
+  ]
+}
