@@ -1,5 +1,5 @@
 {
-  "description": "Shows tell_user from nolang output (the video or sign-in URL) on screen as a notification, wakes Claude when a video it started has finished generating so that it can tell the user, and approves, without a permission prompt, the nolang commands that cannot send a local file (the plumbing of nolang make such as taking a job and writing a part file, reading the account, searching assets)",
+  "description": "Shows tell_user from nolang output (the video or sign-in URL) on screen as a notification, wakes Claude when a video it started has finished generating so that it can tell the user, and approves, without a permission prompt, the nolang commands that cannot send a local file (the plumbing of nolang make such as taking a job and writing a part file, reading the account, searching assets and templates)",
   "hooks": {
     "PreToolUse": [
       {

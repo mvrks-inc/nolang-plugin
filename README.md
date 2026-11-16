@@ -59,7 +59,7 @@ You can also use `/plugins` → Add Marketplace inside Codex. Restart after inst
 - The plugin has your own Claude Code or Codex write the script. Claude Code needs to be signed in with a claude.ai subscription. With API-key-only, Bedrock or Vertex setups, or when the `claude` / `codex` command cannot be used, the plugin has the AI of the current session write the draft instead.
 - Corporate HTTP proxies are not supported.
 - On every start, the plugin fetches the program body from `api.no-lang.com`, verifies its signature and runs it. A body with no signature, or with a signature that does not match, is not run.
-- The routine steps of making a video (checking the status, writing the draft, and so on), reading your account and searching NoLang's assets run without a permission prompt. Anything that can send a local file still goes through Claude Code's normal permission prompt.
+- The routine steps of making a video (checking the status, writing the draft, and so on), reading your account and searching NoLang's assets and templates run without a permission prompt. Anything that can send a local file still goes through Claude Code's normal permission prompt.
 - For questions and problems, open an issue at https://github.com/mvrks-inc/nolang-plugin/issues. Attach the result of asking your agent to "run nolang doctor", or the watch URL.
 
 ## Sign in (once)
@@ -79,6 +79,7 @@ Make a video explaining tips for working from home, with a calm female voice and
 - A watch URL appears in 1–2 minutes. In Claude Code, the link also appears in a notification, before the agent's reply. You can play the video while it is still being generated; the rest grows while you watch. In Claude Code, the agent also tells you when the video is complete.
 - If you ask for a vertical video or state a length, you get that. If you don't, the video is 16:9 and the length is set to fit the content. The video is made in the language of your request (ask in English and you get an English video. For a different language, write something like "in Japanese").
 - Local photos and videos are uploaded as your own assets and used in the video. Voice, BGM, sound effects and fonts are chosen from descriptions (to decide yourself, say "find candidates for a ... voice").
+- To make a video in the form of a NoLang template, say something like "find a template for a product introduction and make it with that". "Make it like this video" with the URL of one of your own videos works the same way.
 - If you want the finished mp4, say "give me the mp4 link when it's done". "Fix this part of this video" makes a fixed video and keeps the original video.
 
 ### Troubleshooting

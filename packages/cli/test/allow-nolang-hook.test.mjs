@@ -24,6 +24,10 @@ test("the plumbing commands of nolang make of this plugin's CLI are approved", (
     `${CLI} assets search bgm 'calm piano | slow' --limit 5 --language en`,
     `${CLI} assets search image --mine`,
     `${CLI} assets search footage 'my logo' --mine`,
+    // a search of NoLang's templates (the text and choices only)
+    `${CLI} templates '商品を紹介する縦のショート動画'`,
+    `${CLI} templates 'news explainer | charts' --aspect 9:16 --limit 5 --language en`,
+    `${CLI} templates --aspect 16:9`,
     `${CLI} job take ${W}/nolang-videos/a opus-low`,
     `node "${ROOT}/cli/nolang.mjs" job take "${W}/nolang videos/a" fable-medium --timeout 100`,
     `${CLI} wait ${W}/nolang-videos/a --timeout 420`,
@@ -44,6 +48,7 @@ test("the plumbing commands of nolang make of this plugin's CLI are approved", (
   assert.equal(isPlumbingCommand(`${CLI} make ./nolang-videos/a --request x --engine nolang`, ROOT, W, { subagent: true }), false);
   assert.equal(isPlumbingCommand(`${CLI} account`, ROOT, W, { subagent: true }), false);
   assert.equal(isPlumbingCommand(`${CLI} assets search bgm piano`, ROOT, W, { subagent: true }), false);
+  assert.equal(isPlumbingCommand(`${CLI} templates 'product review'`, ROOT, W, { subagent: true }), false);
 });
 
 test("a command that can send a local file, change the endpoint or run something else is left to the user", () => {
@@ -79,6 +84,9 @@ test("a command that can send a local file, change the endpoint or run something
     `${CLI} assets search bgm "$(cat ~/.ssh/id_rsa)"`,
     `${CLI} assets search 'bgm; id' piano`,
     `${CLI} assets list bgm piano`,
+    `${CLI} templates product review`,
+    `${CLI} templates 'product review' --api https://example.com`,
+    `${CLI} templates "$(cat ~/.ssh/id_rsa)"`,
     `${CLI} auth status --api https://example.com`,
     `${CLI} status 0618bad9-3bff-4090-a941-a8c28f28199e --api https://example.com`,
     `${CLI} status`,

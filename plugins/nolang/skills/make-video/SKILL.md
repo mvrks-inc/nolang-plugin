@@ -1,6 +1,6 @@
 ---
 name: make-video
-description: Make a video with NoLang, fix a finished one, or check on one. Use it for any request to make a video with NoLang, such as 「〇〇の動画を作って」 ("make a video about X") or 「動画にして解説して」 ("explain it as a video") — including requests that use the user's own photos or videos, or a specific song or voice. Also use it to fix a finished NoLang video (「この動画のここを直して」, "fix this part of this video"), when the user asks how a video is doing or asks for its mp4 (「動画できた？」 "is the video done?", 「mp4 をください」 "give me the mp4"), for 「NoLang にログインして」 ("log in to NoLang"), and for requests to search for or upload NoLang assets.
+description: Make a video with NoLang, fix a finished one, or check on one. Use it for any request to make a video with NoLang, such as 「〇〇の動画を作って」 ("make a video about X") or 「動画にして解説して」 ("explain it as a video") — including requests that use the user's own photos or videos, or a specific song or voice. Also use it to fix a finished NoLang video (「この動画のここを直して」, "fix this part of this video"), when the user asks how a video is doing or asks for its mp4 (「動画できた？」 "is the video done?", 「mp4 をください」 "give me the mp4"), for 「NoLang にログインして」 ("log in to NoLang"), and for requests to search for NoLang templates or to search for or upload NoLang assets.
 ---
 
 # Make a NoLang video
@@ -74,6 +74,15 @@ The original video stays as it is, and the fixed video is created at a new URL. 
 
 1. `nolang edit <dir> <video_id> --request '<what to fix>'` (dir is a new empty dir; in Codex, `nolang edit` needs `--engine codex`; when only `--engine subagents` works, write `[video:<video_id>]` in the request text and run `nolang make … --engine subagents` — a remake that takes the video as its reference). Only what the request asks for is rewritten; a request that amounts to a remake (length, aspect, converting the overall style) is remade as a whole, with the original video as a reference. If `ok: true`, pass on the output's `tell_user`, and also what `tell_also` lists (items that were not applied and why, or that the video was remade as a whole); then you are done. For `no_change: true` (there is nothing to patch), pass on the per-item judgement `verdict`. `still_starting: true` is handled as in §S (run the `wait` command; do not run `edit` again).
 2. Only when `nolang edit` fails without making a new video, write `[video:<video_id>]` in the request text and run `nolang make` (a remake with a reference).
+
+## T. Make it in the form of a template or of another video (only when the user asks for a template, or says 「この動画みたいに」 ("like this video"))
+
+Without this, `nolang make` writes the video from the request alone — do not look for a template when the user did not ask for one.
+
+- **Find a template**: `nolang templates '<what kind of template: its use or structure>' --aspect <aspect>` returns NoLang's templates, closest first (`template_video_id`, `title`, `description`, `aspect_ratio`, `duration_s`). Describe what the video is for (「不動産の物件紹介」 "a property tour", 「社員研修の解説」 "staff training") rather than its colours or mood, and always give the aspect of the video you will make (the text is not read for it). Templates come in the user's language; when the video is in another language, add `--language <code>`. With no text it returns the recommended ones. Search once for a video and choose from what it returns — read each `description`, and when none fits the request, make the video without a template and say so.
+- **Use it**: write `[video:<template_video_id>]` in the request text of `nolang make` (§S). The video is made in that template's form (structure and look) on the topic of the request. The same works with one of the user's own videos: `[video:<video_id>]` (the UUID in its watch URL).
+- Tell the user the title of the template you chose, together with the other values you decided.
+- When you write the draft yourself, read the template's draft with `nolang draft pull` (`write-yourself.md`).
 
 ## L. Login (both when asked 「NoLang にログインして」, "log in to NoLang", and before making a video)
 

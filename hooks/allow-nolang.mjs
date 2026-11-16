@@ -2,9 +2,10 @@
 // Claude Code hook (PreToolUse of Bash / Write / Read): approves, without a permission prompt, the `nolang` commands
 // that cannot send a local file — so that making one video does not ask the user dozens of times (a worker takes a job
 // and writes a part file again and again), and so that a question about the account or a search of NoLang's assets
-// does not stop. It approves exactly three things:
+// or templates does not stop. It approves exactly three things:
 //   1. one plain command of this plugin's own CLI (`node <plugin>/cli/nolang.mjs …`) that cannot send a local file:
 //      `auth status`, `account` with no flag (it only reads the account), `assets search <kind> '<text>'`,
+//      `templates ['<text>']`,
 //      `job take <dir> <tier>`, `wait <dir>`, `status <video_id>` (it only reads a video's state), and `make <dir>`
 //      with the flags listed in MAKE_FLAGS (any `--engine`). <dir> is a directory inside the working directory. A subagent
 //      (a video worker) gets only `job take`
@@ -123,6 +124,8 @@ const MAKE_FLAGS = {
 // Flags of `nolang assets search`: the search sends only the kind, the text and these choices
 const SEARCH_FLAGS = { mine: "bool", limit: SECONDS, language: matches(/^[A-Za-z-]+$/) };
 const KIND = matches(/^[a-z]+$/);
+// Flags of `nolang templates`: the search sends only the text and these choices
+const TEMPLATE_FLAGS = { aspect: matches(/^\d+:\d+$/), language: matches(/^[A-Za-z-]+$/), limit: SECONDS };
 
 // Is the command one plain call of this plugin's CLI that this hook approves (the list at the top)? A subagent gets only
 // `job take`
@@ -139,6 +142,8 @@ export function isPlumbingCommand(command, pluginRoot, cwd, { subagent = false }
   if (verb === "account") return fits(args, { positionals: [] });
   // `assets search <kind> '<text>'`, or `assets search <kind> --mine` with no text
   if (verb === "assets") return [[is("search"), KIND, () => true], [is("search"), KIND]].some((positionals) => fits(args, { positionals, flags: SEARCH_FLAGS }));
+  // `templates '<text>'`, or `templates` with no text (the recommended ones)
+  if (verb === "templates") return [[() => true], []].some((positionals) => fits(args, { positionals, flags: TEMPLATE_FLAGS }));
   if (verb === "wait") return fits(args, { positionals: [dir], flags: { timeout: SECONDS } });
   if (verb === "status") return fits(args, { positionals: [UUID], flags: { wait: "bool", timeout: SECONDS } });
   if (verb === "make") return fits(args, { positionals: [dir], flags: MAKE_FLAGS });
