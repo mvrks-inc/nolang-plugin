@@ -59,7 +59,7 @@ You can also use `/plugins` → Add Marketplace inside Codex. Restart after inst
 - The plugin has your own Claude Code or Codex write the script. Claude Code needs to be signed in with a claude.ai subscription. With API-key-only, Bedrock or Vertex setups, or when the `claude` / `codex` command cannot be used, the plugin has the AI of the current session write the draft instead.
 - Corporate HTTP proxies are not supported.
 - On every start, the plugin fetches the program body from `api.no-lang.com`, verifies its signature and runs it. A body with no signature, or with a signature that does not match, is not run.
-- The routine steps of making a video (checking the status, writing the draft, and so on) run without a permission prompt. Anything that can send a local file still goes through Claude Code's normal permission prompt.
+- The routine steps of making a video (checking the status, writing the draft, and so on), reading your account and searching NoLang's assets run without a permission prompt. Anything that can send a local file still goes through Claude Code's normal permission prompt.
 - For questions and problems, open an issue at https://github.com/mvrks-inc/nolang-plugin/issues. Attach the result of asking your agent to "run nolang doctor", or the watch URL.
 
 ## Sign in (once)

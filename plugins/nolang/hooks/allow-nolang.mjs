@@ -1,17 +1,19 @@
 #!/usr/bin/env node
-// Claude Code hook (PreToolUse of Bash / Write / Read): approves, without a permission prompt, only the plumbing of
-// `nolang make` — so that making one video does not ask the user dozens of times (a worker takes a job and writes a
-// part file again and again). It approves exactly three things:
+// Claude Code hook (PreToolUse of Bash / Write / Read): approves, without a permission prompt, the `nolang` commands
+// that cannot send a local file — so that making one video does not ask the user dozens of times (a worker takes a job
+// and writes a part file again and again), and so that a question about the account or a search of NoLang's assets
+// does not stop. It approves exactly three things:
 //   1. one plain command of this plugin's own CLI (`node <plugin>/cli/nolang.mjs …`) that cannot send a local file:
-//      `auth status`, `job take <dir> <tier>`, `wait <dir>`, `status <video_id>` (it only reads a video's state), and `make <dir>`
+//      `auth status`, `account` with no flag (it only reads the account), `assets search <kind> '<text>'`,
+//      `job take <dir> <tier>`, `wait <dir>`, `status <video_id>` (it only reads a video's state), and `make <dir>`
 //      with the flags listed in MAKE_FLAGS (any `--engine`). <dir> is a directory inside the working directory. A subagent
 //      (a video worker) gets only `job take`
 //   2. a write of a job's part file inside the working directory (`…/stream/jobs/<job>/parts/NNN.txt`), with no symlink
 //      on the way
 //   3. a read of this plugin's own skill documents (they live outside the working directory)
 // Everything else — an upload (`assets upload`, `make --speech`), a flag that reads a file (`make --request-file`),
-// another endpoint (`--api`), a command chained to something else, a word the shell would expand, any other file — gets
-// no decision here and goes through the normal permission flow.
+// a command that changes a setting (`account --language`), another endpoint (`--api`), a command chained to something
+// else, a word the shell would expand, any other file — gets no decision here and goes through the normal permission flow.
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { posix } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -118,7 +120,11 @@ const MAKE_FLAGS = {
   editable: "bool",
 };
 
-// Is the command one plain call of this plugin's CLI that the plumbing of `nolang make` needs? A subagent gets only
+// Flags of `nolang assets search`: the search sends only the kind, the text and these choices
+const SEARCH_FLAGS = { mine: "bool", limit: SECONDS, language: matches(/^[A-Za-z-]+$/) };
+const KIND = matches(/^[a-z]+$/);
+
+// Is the command one plain call of this plugin's CLI that this hook approves (the list at the top)? A subagent gets only
 // `job take`
 export function isPlumbingCommand(command, pluginRoot, cwd, { subagent = false } = {}) {
   const root = String(pluginRoot ?? "").replace(/\/+$/, "");
@@ -130,6 +136,9 @@ export function isPlumbingCommand(command, pluginRoot, cwd, { subagent = false }
   if (verb === "job") return fits(args, { positionals: [is("take"), dir, TIER], flags: { timeout: SECONDS } });
   if (subagent) return false;
   if (verb === "auth") return fits(args, { positionals: [is("status")] });
+  if (verb === "account") return fits(args, { positionals: [] });
+  // `assets search <kind> '<text>'`, or `assets search <kind> --mine` with no text
+  if (verb === "assets") return [[is("search"), KIND, () => true], [is("search"), KIND]].some((positionals) => fits(args, { positionals, flags: SEARCH_FLAGS }));
   if (verb === "wait") return fits(args, { positionals: [dir], flags: { timeout: SECONDS } });
   if (verb === "status") return fits(args, { positionals: [UUID], flags: { wait: "bool", timeout: SECONDS } });
   if (verb === "make") return fits(args, { positionals: [dir], flags: MAKE_FLAGS });
@@ -167,7 +176,7 @@ export function isSkillDocument(path, pluginRoot) {
 export function approval(event, pluginRoot) {
   const input = event?.tool_input ?? {};
   const subagent = Boolean(event?.agent_id);
-  if (event?.tool_name === "Bash" && isPlumbingCommand(input.command, pluginRoot, event.cwd, { subagent })) return "NoLang plugin: its own CLI (the plumbing of nolang make)";
+  if (event?.tool_name === "Bash" && isPlumbingCommand(input.command, pluginRoot, event.cwd, { subagent })) return "NoLang plugin: its own nolang command (it cannot send a local file)";
   if (event?.tool_name === "Write" && isPartFile(input.file_path, event.cwd)) return "NoLang plugin: a part file of a nolang make job";
   if (event?.tool_name === "Read" && isSkillDocument(input.file_path, pluginRoot)) return "NoLang plugin: its own skill document";
   return null;

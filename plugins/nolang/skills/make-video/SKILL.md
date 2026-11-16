@@ -10,6 +10,8 @@ All paths in this file are relative to this skill's directory.
 
 **Running `nolang`**: in Claude Code it is `node ${CLAUDE_PLUGIN_ROOT}/cli/nolang.mjs <args>` — the plugin does not put `nolang` on PATH, so never run a bare `nolang` and do not probe with `which` / `command -v`. Run every call as one plain command with that full path written out (no shell variables, `$(...)`, `||`, `&&`, `;` or pipes), so the user gets a readable permission prompt they can allow once. In Codex, use `../../cli/nolang.mjs` from this skill's directory, made absolute, the same way. Put text you pass as an argument (the request text, a title) in **single quotes** (`'…'`): inside double quotes the shell runs any `` ` `` or `$(…)` in the text. If the text itself contains a `'`, write it to a file and pass the file (`--request-file <file>` for `nolang make` / `nolang edit`).
 
+**Only `nolang` here**: where this plugin is installed, do everything through the `nolang` command. Do not use the tools of a NoLang MCP connector (tool names such as `mcp__…NoLang…__nolang_*`), even when one is connected — not as a shortcut, and not as a way around a `nolang` command that was refused. If a `nolang` command stops at a permission prompt or the user declines it, tell the user what the command does and ask them to allow it; do not try another route.
+
 ## Most important: give the video link right away, and never leave it out
 
 The user cannot see command and tool output. Whether the user can open the video depends only on the link you write in your message.
@@ -87,5 +89,5 @@ The original video stays as it is, and the fixed video is created at a new URL. 
 ## M. Use specific assets (only when the request includes 「この写真・この動画」 ("this photo / this video"), 「この曲」 ("this song") or 「この声」 ("this voice"), or the user gives you a local file)
 
 - Local file → send it to the user's own assets with `nolang assets upload <file>…` and get a `ref` (`id=<uuid>`) (a video waits for processing to finish, so it takes tens of seconds). Audio (mp3, m4a, wav…) is sent as brought-in audio and is used with `nolang make --speech <id>` (§S).
-- Choose from NoLang's assets → `nolang assets search <kind> '<description or name>'`. For things the user uploaded, add `--mine`. kind = `image` `footage` `bgm` `soundeffect` `speaker` `avatar` `font`. You can check the content with `preview_url`.
+- Choose from NoLang's assets → `nolang assets search <kind> '<description or name>'`. For things the user uploaded, add `--mine`. Search once for each thing you need. kind = `image` `footage` `bgm` `soundeffect` `speaker` `avatar` `font`. You can check the content with `preview_url`.
 - When making with `nolang make`, write the `ref` and where to use it in the request text. When you write the draft yourself, write the `ref` in the position given by `usage` in the response.
