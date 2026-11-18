@@ -33,6 +33,7 @@ test("the plumbing commands of nolang make of this plugin's CLI are approved", (
     `${CLI} wait ${W}/nolang-videos/a --timeout 420`,
     `${CLI} status 0618bad9-3bff-4090-a941-a8c28f28199e`,
     `${CLI} status 0618bad9-3bff-4090-a941-a8c28f28199e --wait --timeout 540`,
+    `${CLI} status 0618bad9-3bff-4090-a941-a8c28f28199e --wait --until playable --timeout 540`,
     `${CLI} make ./nolang-videos/a --genre explain --mode plus --aspect 16:9 --request 'a | b; c' --engine subagents`,
     `${CLI} make ./nolang-videos/a --genre film --request "x" --seconds 30 --language ja`,
     `${CLI} make ./nolang-videos/a --genre explain --request x --engine codex --editable`,
@@ -68,7 +69,6 @@ test("a command that can send a local file, change the endpoint or run something
     `${CLI} make ./a --genre explain --request x --engine 'nolang; id'`,
     `${CLI} make ./a --genre explain --request x --author high`,
     `${CLI} make ./a --genre explain --request x --timeout 600`,
-    `${CLI} status 0618bad9-3bff-4090-a941-a8c28f28199e --wait --until playable`,
     // a job is taken for a tier
     `${CLI} job take ${W}/a`,
     `${CLI} job take ${W}/a --timeout 100`,
@@ -90,6 +90,7 @@ test("a command that can send a local file, change the endpoint or run something
     `${CLI} auth status --api https://example.com`,
     `${CLI} status 0618bad9-3bff-4090-a941-a8c28f28199e --api https://example.com`,
     `${CLI} status`,
+    `${CLI} status 0618bad9-3bff-4090-a941-a8c28f28199e --wait --until started`,
     `${CLI} edit ./a 0618bad9-3bff-4090-a941-a8c28f28199e --request x`,
     // the draft commands read the files of a directory, and cancel stops a video
     `${CLI} draft submit ./a --title x --language ja`,

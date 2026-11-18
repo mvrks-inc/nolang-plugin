@@ -6,7 +6,7 @@
 //   1. one plain command of this plugin's own CLI (`node <plugin>/cli/nolang.mjs …`) that cannot send a local file:
 //      `auth status`, `account` with no flag (it only reads the account), `assets search <kind> '<text>'`,
 //      `templates ['<text>']`,
-//      `job take <dir> <tier>`, `wait <dir>`, `status <video_id>` (it only reads a video's state), and `make <dir>`
+//      `job take <dir> <tier>`, `wait <dir>`, `status <video_id> [--wait] [--until …]` (it only reads a video's state), and `make <dir>`
 //      with the flags listed in MAKE_FLAGS (any `--engine`). <dir> is a directory inside the working directory. A subagent
 //      (a video worker) gets only `job take`
 //   2. a write of a job's part file inside the working directory (`…/stream/jobs/<job>/parts/NNN.txt`), with no symlink
@@ -145,7 +145,7 @@ export function isPlumbingCommand(command, pluginRoot, cwd, { subagent = false }
   // `templates '<text>'`, or `templates` with no text (the recommended ones)
   if (verb === "templates") return [[() => true], []].some((positionals) => fits(args, { positionals, flags: TEMPLATE_FLAGS }));
   if (verb === "wait") return fits(args, { positionals: [dir], flags: { timeout: SECONDS } });
-  if (verb === "status") return fits(args, { positionals: [UUID], flags: { wait: "bool", timeout: SECONDS } });
+  if (verb === "status") return fits(args, { positionals: [UUID], flags: { wait: "bool", until: matches(/^(playable|completed)$/), timeout: SECONDS } });
   if (verb === "make") return fits(args, { positionals: [dir], flags: MAKE_FLAGS });
   return false;
 }

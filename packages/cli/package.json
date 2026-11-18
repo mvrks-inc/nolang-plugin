@@ -1,7 +1,7 @@
 {
   "name": "nolang-cli-bootstrap",
   "private": true,
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "The bootstrap of the nolang command inside the plugin: fetches the program body from the NoLang server, verifies its signature and runs it",
   "type": "module",
   "scripts": {
