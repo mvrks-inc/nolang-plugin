@@ -14,7 +14,7 @@ import { chmod, lstat, mkdir, readFile, readdir, rename, rm, stat, writeFile } f
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { gunzipSync } from "node:zlib";
 
 // The bundled CLI is written for Node 20+; say so here instead of failing somewhere inside it
@@ -39,9 +39,18 @@ const PROD_API = "https://api.no-lang.com";
 // NOLANG_CLIENT_DIR=<a checkout of the CLI> runs that checkout without fetching anything.
 const TRUSTED_ORIGIN = (process.env.NOLANG_CLIENT_TRUSTED_ORIGIN || "").replace(/\/+$/, "");
 const unsignedOk = (api) => api === TRUSTED_ORIGIN; // any other source (production) must sign its bundle
-// Public keys for the bundle signature (Ed25519, raw 32 bytes, hex) — the same value the NoLang server build signs with.
-// To rotate: ship a bootstrap with the new key added here first, switch the build's private key, then remove the old key.
-const BUNDLE_PUBLIC_KEYS = ["2cb56de2d1adb85a6ec5ad2ba44b1c1d56f323c7cd923a727d041dc72ba120a7"];
+// Public keys for the bundle signature (Ed25519, raw 32 bytes, hex) — the keys the NoLang release build signs with.
+// The signature is in the `X-NoLang-Bundle-Signature-V2` header: up to SIGNATURE_MAX items separated by commas, each the
+// base64 of an Ed25519 signature of the statement `nolang-client-bundle:v1:<sha256 of the tar.gz, lowercase hex>` (UTF-8,
+// no newline). The bundle passes when any item verifies with any key here; an item that does not verify or cannot be
+// read is skipped (during a key change the server sends one signature per key, and some are for keys this bootstrap does
+// not know). To rotate: ship a bootstrap with the new key added here, have the release sign with both keys, then drop the
+// old signature when few old bootstraps remain. The older `X-NoLang-Bundle-Signature` header (a signature of the tar.gz
+// itself, read by bootstraps up to 0.0.4) is not read here
+const BUNDLE_PUBLIC_KEYS = ["a3322f4919f7e42de40cd848a89f1399cff9056ab3e6a1366f39484d70ffb519"];
+const SIGNATURE_HEADER = "x-nolang-bundle-signature-v2";
+const SIGNATURE_MAX = 4;
+const signedStatement = (hash) => Buffer.from(`nolang-client-bundle:v1:${hash}`, "utf8");
 // The lowest security epoch a signed bundle may carry: cli/security-epoch in the bundle (an integer inside the signed
 // bytes; none = 0). The server raises it with a fix to a hole that a server could use through an older bundle — whoever
 // holds the origin could otherwise replay an old signed bundle and reopen the hole. Raise this only after the bundle with
@@ -71,12 +80,31 @@ const EXIT = { USAGE: 2, NETWORK: 4 }; // same values as EXIT in the bundled CLI
 
 const log = (...args) => console.error(...args);
 
+// `unverified` = the bundle is signed, but no signature verifies with the keys in this bootstrap. The keys change only
+// with a plugin update, so this error comes with how to update the plugin (UPDATE_HINT)
 class BootstrapError extends Error {
-  constructor(message, exit) {
+  constructor(message, exit, { unverified = false } = {}) {
     super(message);
     this.exit = exit;
+    this.unverified = unverified;
   }
 }
+
+// How to update this plugin, by where it is installed (Codex keeps its copy under ~/.codex/, Claude Code under
+// <config dir>/plugins/cache/). The same commands as the update notice of the bundled CLI
+const UPDATE_COMMANDS = (() => {
+  const path = fileURLToPath(import.meta.url).replaceAll("\\", "/");
+  const claude = "claude plugin marketplace update nolang → claude plugin update nolang@nolang";
+  const codex = "codex plugin marketplace upgrade nolang → codex plugin remove nolang@nolang → codex plugin add nolang@nolang";
+  return path.includes("/.codex/") ? codex : path.includes("/plugins/cache/") ? claude : `${claude} (Codex: ${codex})`;
+})();
+const UPDATE_HINT = `Update the NoLang plugin and use it in a new session: ${UPDATE_COMMANDS}. If the same message remains after the update, the problem is on the NoLang side — try again later`;
+// The same for the user's screen (`tell_user`; the plugin's hook shows it as it is). The bootstrap does not know the
+// user's language, so it says it in Japanese and in English
+const UPDATE_TELL_USER = [
+  `NoLang のプラグインの更新が必要です (このバージョン ${BOOTSTRAP} では、新しい NoLang の client を確かめられませんでした)。次で更新し、新しい session で使ってください: ${UPDATE_COMMANDS}`,
+  `The NoLang plugin needs an update (version ${BOOTSTRAP} could not verify the new NoLang client). Update with the following and use it in a new session: ${UPDATE_COMMANDS}`,
+].join("\n");
 
 // The API endpoint (where the bundle comes from). Same order as pickApi in the bundled CLI; URLs only. `--api` may appear
 // once: with two, this file would check the first while the bundled CLI's parser takes the last, so the CLI (and the
@@ -91,12 +119,20 @@ function apiOf(argv) {
   return raw.replace(/\/+$/, "");
 }
 
-// Verify the bundle signature (base64) against any of the public keys
-function signedByNoLang(bytes, signature) {
-  const sig = Buffer.from(signature, "base64");
-  return BUNDLE_PUBLIC_KEYS.some((hex) => {
-    const key = createPublicKey({ key: Buffer.concat([ED25519_SPKI_PREFIX, Buffer.from(hex, "hex")]), format: "der", type: "spki" });
-    return verify(null, bytes, key, sig);
+// Does any signature in the header value verify the statement for this bundle (its sha256) with any of the public keys?
+function signedByNoLang(hash, header) {
+  const statement = signedStatement(hash);
+  const keys = BUNDLE_PUBLIC_KEYS.map((hex) => createPublicKey({ key: Buffer.concat([ED25519_SPKI_PREFIX, Buffer.from(hex, "hex")]), format: "der", type: "spki" }));
+  const items = header.split(",").map((item) => item.trim()).filter(Boolean).slice(0, SIGNATURE_MAX);
+  return items.some((item) => {
+    const signature = Buffer.from(item, "base64");
+    return keys.some((key) => {
+      try {
+        return verify(null, statement, key, signature);
+      } catch {
+        return false; // not a signature (a wrong length): skip it
+      }
+    });
   });
 }
 
@@ -181,7 +217,8 @@ async function fetchBundle(api, known, timeoutMs, { probe = false } = {}) {
   let res;
   try {
     res = await fetch(`${api}/agent/client/`, {
-      headers: { accept: "application/gzip", ...(known ? { "if-none-match": `"${known}"` } : {}) },
+      // x-nolang-bootstrap: the server counts which bootstrap versions still fetch (to know when an old key can go)
+      headers: { accept: "application/gzip", "x-nolang-bootstrap": BOOTSTRAP, ...(known ? { "if-none-match": `"${known}"` } : {}) },
       redirect: "error", // the bundle must come from the endpoint itself (a redirect elsewhere is refused)
       signal: controller.signal,
     });
@@ -198,11 +235,13 @@ async function fetchBundle(api, known, timeoutMs, { probe = false } = {}) {
   const hash = createHash("sha256").update(bytes).digest("hex");
   const etag = (res.headers.get("etag") || "").replace(/"/g, "");
   if (etag && etag !== hash) throw new Error(`The bundle fingerprint differs from the ETag (${hash.slice(0, 12)} ≠ ${etag.slice(0, 12)}) — the content changed mid-transfer`);
-  const signature = res.headers.get("x-nolang-bundle-signature");
+  // No signature that verifies → unverified (a newer plugin may know the key: the error says how to update). No signature
+  // header at all is the server's side (its image was not signed), which a plugin update does not fix
+  const signature = res.headers.get(SIGNATURE_HEADER);
   if (signature) {
-    if (!signedByNoLang(bytes, signature)) throw new BootstrapError(`The signature of the client bundle from ${api} does not match the NoLang key (${hash.slice(0, 12)}) — refusing to run it`, EXIT.NETWORK);
+    if (!signedByNoLang(hash, signature)) throw new BootstrapError(`The signature of the client bundle from ${api} does not match a NoLang key this plugin knows (${hash.slice(0, 12)}) — refusing to run it`, EXIT.NETWORK, { unverified: true });
   } else if (!unsignedOk(api)) {
-    throw new BootstrapError(`The client bundle from ${api} is not signed (${hash.slice(0, 12)}) — the server image did not sign it. An unsigned bundle runs only from the NOLANG_CLIENT_TRUSTED_ORIGIN origin`, EXIT.NETWORK);
+    throw new BootstrapError(`The client bundle from ${api} is not signed (${hash.slice(0, 12)}, no X-NoLang-Bundle-Signature-V2) — the server image did not sign it. An unsigned bundle runs only from the NOLANG_CLIENT_TRUSTED_ORIGIN origin`, EXIT.NETWORK);
   }
   if (!unsignedOk(api)) {
     const file = untar(gunzipSync(bytes, { maxOutputLength: MAX_UNPACKED_BYTES })).find(([path]) => path === EPOCH_FILE);
@@ -288,8 +327,9 @@ async function fetchFirstBundle(api) {
   }
 }
 
-// The bundle to run this time → { dir, hash }. With a bundle on disk the check waits up to CHECK_TIMEOUT_MS (on failure
-// the bundle on disk runs). With none, wait with retries (fetchFirstBundle)
+// The bundle to run this time → { dir, hash, unverified? }. With a bundle on disk the check waits up to CHECK_TIMEOUT_MS
+// (on failure the bundle on disk runs — `unverified` when the server's new bundle could not be verified, so the bundle on
+// disk is older than the server). With none, wait with retries (fetchFirstBundle)
 async function ensureBundle(api) {
   if (process.env.NOLANG_CLIENT_DIR) {
     // The plugin's hook approves commands for whichever CLI runs, so a checkout below the epoch is refused like a bundle
@@ -322,8 +362,11 @@ async function ensureBundle(api) {
   } catch (error) {
     const why = reasonOf(error);
     if (cached) {
-      log(`Note: could not reach ${api} for the NoLang client (${why}) — running the client on disk`);
-      return { dir: join(CLIENT_DIR, cached), hash: cached };
+      // Say why: a bundle this bootstrap refused is not "could not reach" — the server answered, and the client on disk is
+      // now older than the server until the plugin is updated
+      if (error instanceof BootstrapError) log(`Note: the new NoLang client from ${api} was refused (${why}) — running the older client on disk${error.unverified ? `. ${UPDATE_HINT}` : ""}`);
+      else log(`Note: could not reach ${api} for the NoLang client (${why}) — running the client on disk`);
+      return { dir: join(CLIENT_DIR, cached), hash: cached, unverified: Boolean(error.unverified) };
     }
     if (error instanceof BootstrapError) throw error;
     throw new BootstrapError(`Could not fetch the NoLang client from ${api} (${why}) — check the API endpoint (NOLANG_API_URL) and the network`, EXIT.NETWORK);
@@ -355,8 +398,13 @@ try {
   api = apiOf(argv);
   bundle = await ensureBundle(api);
 } catch (error) {
-  log(`error: ${error.message}`);
-  process.stdout.write(JSON.stringify({ ok: false, error: error.message }, null, 2) + "\n");
+  // A bundle that could not be verified: nothing runs until the plugin is updated, so say how (to the user as well)
+  const message = error.unverified ? `${error.message}. ${UPDATE_HINT}` : error.message;
+  log(`error: ${message}`);
+  const told = error.unverified
+    ? { tell_user: UPDATE_TELL_USER, next: "Write tell_user to the user as it is before anything else. Do not run the same command again — it fails until the plugin is updated" }
+    : {};
+  process.stdout.write(JSON.stringify({ ...told, ok: false, error: message }, null, 2) + "\n");
   process.exit(error.exit ?? EXIT.NETWORK);
 }
 process.env.NOLANG_CLIENT_BUNDLE = bundle.hash; // the bundled CLI sends this in X-NoLang-Client
@@ -373,10 +421,12 @@ try {
   process.stdout.write(JSON.stringify({ ok: false, error: message }, null, 2) + "\n");
   process.exit(EXIT.NETWORK);
 }
-await run(argv, { bootstrap: BOOTSTRAP, api });
+// `unverified`: the bundle on disk runs because the server's new bundle could not be verified — the bundled CLI adds the
+// update notice to what it tells the user
+await run(argv, { bootstrap: BOOTSTRAP, api, unverified: Boolean(bundle.unverified) });
 // Only after a failure: if the server was updated in the meantime, say in one line that a rerun will fix it
 // (the bundle is checked once, at start)
-if (process.exitCode && bundle.hash !== "dev") {
+if (process.exitCode && bundle.hash !== "dev" && !bundle.unverified) {
   try {
     if (await fetchBundle(api, bundle.hash, CHECK_TIMEOUT_MS, { probe: true })) log("Note: the NoLang server was updated in the meantime — run the same command again to use the new client");
   } catch {

@@ -142,13 +142,14 @@ describe("what the bootstrap refuses to run", { concurrency: true }, () => {
   });
 
   test("a signature that does not verify: refused without a retry, even from a trusted origin", async () => {
-    const signed = { body: BUNDLE, headers: { etag: ETAG, "x-nolang-bundle-signature": Buffer.alloc(64, 1).toString("base64") } };
+    const signed = { body: BUNDLE, headers: { etag: ETAG, "x-nolang-bundle-signature-v2": Buffer.alloc(64, 1).toString("base64") } };
     await withServer([signed], async (server, configDir) => {
       const result = await launch(server.origin, configDir);
 
       assert.equal(result.code, 4);
       assert.equal(server.seen.length, 1);
-      assert.match(result.stderr, /signature .* does not match the NoLang key/);
+      assert.match(result.stderr, /signature .* does not match a NoLang key this plugin knows/);
+      assert.match(result.stderr, /claude plugin update nolang@nolang/);
       assert.doesNotMatch(result.stdout, /BUNDLE RAN/);
     });
   });
